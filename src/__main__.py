@@ -2,10 +2,12 @@
 """
 aafe
 """
+import base64
 import os
 import sys
 import subprocess
 
+PACKED = "{{ script }}"
 
 def gdbcmd(args, script_path, binary, timeout):
     """
@@ -19,7 +21,7 @@ def gdbcmd(args, script_path, binary, timeout):
     # If it still hasn't finished after `timeout` time, it received a SIGINT
     # which should allow gdb to finish it's analysis so we can move on.
     gdb_cmd = [
-        'timeout', '-s', 'INT', timeout
+        'timeout', '-s', 'INT', timeout,
         'gdb', '-nx', '--batch-silent',
         '-ex', args_s,
         '-x', script_path,
@@ -33,6 +35,10 @@ def write_script(path):
     """
     Dumps GDB script to disk, so it can be used.
     """
+    file = base64.b64decode(PACKED)
+    f = open(path, 'wb')
+    f.write(file)
+    f.close()
     return path
 
 
