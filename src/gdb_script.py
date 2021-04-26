@@ -1,55 +1,37 @@
 """
-GDB triage script
+script to be ran by GDB.
+
+Invoke it like:
+gdb --batch-silent -nx -ex "py PORT=1337" --command=gdb_script.py
 """
-import os
-import json
+import rpyc
 import gdb
 
-def backtracer(frame):
-    """
-    Gets the full stack backtrace
-    """
-    backtrace = []
-    curr_frame = frame
+# Default Settings
+if 'HOSTNAME' not in locals():
+    HOSTNAME = '127.0.0.1'
 
-    while curr_frame is not None:
-        backtrace.append(
-            {
-                'address': '0x%8x' % curr_frame.pc(),
-                'function': '%s' % curr_frame.name()
-            }
-        )
-
-        curr_frame = curr_frame.older()
-
-    return backtrace
+if 'PORT' not in locals():
+    PORT = 18861
 
 
-def crash_handler(event):
-    """
-    Handles the event
-    """
-    reason = event.stop_signal
-    backtrace = []
-    try:
-        frame = gdb.newest_frame()
-        backtrace = backtracer(frame)
-    except gdb.error:
-        return
+# The Service
+class GDBService(rpyc.Service):
+    def on_disconnect(self, conn):
+        gdb.execute('quit')
 
-    # testcase is defined as a global by the invoker
-    result = {
-        #'testcase': testcase,
-        'size': os.path.getsize(testcase),
-        'reason': reason,
-        'backtrace': backtrace
-    }
-    f = open('{}.analysis'.format(os.path.basename(testcase)), 'w')
-    f.write(json.dumps(result))
-    f.close()
-    
+    def exposed_gdb(self):
+        return gdb
 
-gdb.execute('set pagination off')
-gdb.events.stop.connect(crash_handler)
-gdb.execute("r {} 2>/dev/null".format(testcase))
-gdb.execute("q")
+
+if __name__ == "__main__":
+    from rpyc.utils.server import OneShotServer
+    server = OneShotServer(
+        GDBService,
+        hostname=HOSTNAME,
+        port=PORT,
+        protocol_config={
+            'allow_public_attrs': True,
+        }
+    )
+    server.start()

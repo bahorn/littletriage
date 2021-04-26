@@ -1,1 +1,6 @@
 __pycache__
+packed.py
+
+tests/recusion
+tests/normal
+tests/ro_mem
