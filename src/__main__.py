@@ -14,6 +14,12 @@ import rpyc
 PACKED = "{{ script }}"
 
 
+amd64_registers = [
+    'rax', 'rcx', 'rdx', 'rbx',
+    'rsi', 'rdi', 'rsp', 'rbp',
+    'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15'
+]
+
 class Analyzer:
     """
     Base class representing a tool to analyze a testcase.
@@ -130,11 +136,20 @@ class GDBAnalyzer(Analyzer):
             backtrace = []
             curr_frame = frame
 
+            # while the api docs say gdb.Architecture should include the
+            # registers, it actually doesn't at least on gdb 9.2, so we have to
+            # manually handle x86s stuff here.
+
+            registers = {}
+            for register in amd64_registers:
+                registers[register] = '0x%016x' % curr_frame.read_register(register)
+
             while curr_frame is not None:
                 backtrace.append(
                     {
-                        'address': '0x%8x' % curr_frame.pc(),
-                        'function': '%s' % curr_frame.name()
+                        'address': '0x%016x' % curr_frame.pc(),
+                        'function': '%s' % curr_frame.name(),
+                        'registers': registers
                     }
                 )
 
@@ -154,8 +169,8 @@ class GDBAnalyzer(Analyzer):
                 reason = event.stop_signal
                 frame = gdb.newest_frame()
                 backtrace = backtracer(frame)
-            except:
-                pass
+            except Exception as e:
+                print(e)
             
             # return the results
             result = {
