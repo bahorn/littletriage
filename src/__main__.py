@@ -14,14 +14,14 @@ def gdbcmd(args, script_path, binary, timeout):
     generates the args for the gdb cmd
     """
     args_s = 'py '
-    args_l = ['{}={}'.format(key, value) for key, value in args.items()]
+    args_l = ['{}="{}"'.format(key, value) for key, value in args.items()]
     args_s += ';'.join(args_l)
 
     # Runs GDB by a timeout.
     # If it still hasn't finished after `timeout` time, it received a SIGINT
     # which should allow gdb to finish it's analysis so we can move on.
     gdb_cmd = [
-        'timeout', '-s', 'INT', timeout,
+        'timeout', '-s', 'INT', str(timeout),
         'gdb', '-nx', '--batch-silent',
         '-ex', args_s,
         '-x', script_path,
@@ -46,6 +46,7 @@ def execute(cmd):
     """
     wrapper to handle run a process
     """
+    print(" ".join(cmd))
     return subprocess.run(cmd)
 
 
@@ -70,7 +71,7 @@ def main():
             testcase_dir,
             testcase
         )
-        print(gdbcmd({'testcase': full_path}, script, binary, 30))
+        gdbexec({'testcase': full_path}, script, binary)
 
 
 if __name__ == "__main__":

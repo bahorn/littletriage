@@ -2,10 +2,8 @@
 GDB triage script
 """
 import os
+import json
 import gdb
-
-data = []
-
 
 def backtracer(frame):
     """
@@ -36,32 +34,22 @@ def crash_handler(event):
     try:
         frame = gdb.newest_frame()
         backtrace = backtracer(frame)
-
     except gdb.error:
         return
 
     # testcase is defined as a global by the invoker
     result = {
-        'testcase': testcase,
+        #'testcase': testcase,
         'size': os.path.getsize(testcase),
         'reason': reason,
         'backtrace': backtrace
     }
+    f = open('{}.analysis'.format(os.path.basename(testcase)), 'w')
+    f.write(json.dumps(result))
+    f.close()
+    
 
-    data.append(result)
-
-
-def main():
-    """
-    Entrypoint for this gdb script
-    """
-    # Setup communication with parent process
-
-    # Do the work
-    gdb.execute('set pagination off')
-    gdb.events.stop.connect(crash_handler)
-    gdb.execute("r {} 2>/dev/null".format(full_path))
-    gdb.execute("q")
-
-
-main()
+gdb.execute('set pagination off')
+gdb.events.stop.connect(crash_handler)
+gdb.execute("r {} 2>/dev/null".format(testcase))
+gdb.execute("q")
