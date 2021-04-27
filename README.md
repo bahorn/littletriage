@@ -7,6 +7,11 @@ The Little Triage Tool That Could.
 Tool to generate "triage" reports on crashing testcases. So like things from
 your fuzzer, etc.
 
+## Dependencies
+
+The only non-default dependency this uses is `rypc`, to communicate with a child
+GDB instance.
+
 ## Usage
 
 First, create a working script with:
