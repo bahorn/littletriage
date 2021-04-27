@@ -4,6 +4,7 @@ Main Script
 """
 import argparse
 import base64
+import json
 import hashlib
 import os
 import subprocess
@@ -173,7 +174,10 @@ class GDBAnalyzer(Analyzer):
                 frame = gdb.newest_frame()
                 backtrace = backtracer(frame)
             except Exception as e:
-                print(e)
+                # we get a lot of non-real exceptions from rpyc, so we have to
+                # skip over them like this.
+                #print(e)
+                pass
             
             # return the results
             result = {
@@ -213,7 +217,6 @@ class GDBAnalyzer(Analyzer):
         prlimit = \
             '!prlimit --pid %i --core=unlimited --as=%i' % \
                 (inferior.pid, self.memory)
-        print(prlimit)
         gdb.execute(prlimit)
 
         # and now start
@@ -226,7 +229,6 @@ class GDBAnalyzer(Analyzer):
                 time.sleep(0.01)
             else:
                 break
-        print(result)
         return result
 
     @staticmethod
@@ -259,7 +261,6 @@ class GDBAnalyzer(Analyzer):
         """
         wrapper to handle run a process
         """
-        print(cmd)
         return subprocess.Popen(cmd)
 
 
@@ -308,7 +309,7 @@ class Testcase:
         """
         Gets the details of this testcase
         """
-        return {'name': self.name, 'path': self.file, 'results': self.results}
+        return {'name': self.name, 'path': self.file, 'analysis': self.results}
 
     def update(self, key, value):
         """
@@ -330,12 +331,10 @@ class TriageTool:
         self.testcases()
 
         # define all supported the analyzers here
-        example = ExampleAnalyzer()
         meta = MetaAnalyzer()
         gdb = GDBAnalyzer(binary, binargs, stdin=stdin, timeout=timeout,
                           wait_time=wait_time, memory=memory)
         self.all_analyzers = {
-            'example': example,
             'meta': meta,
             'gdb': gdb
         }
@@ -344,10 +343,13 @@ class TriageTool:
         """
         Runs though and analyzes all the testcases
         """
+        results = []
         for _, testcase in self.all_testcases.items():
             for analyzer_name, analyzer in self.all_analyzers.items():
                 testcase.update(analyzer_name, analyzer.analyze(testcase))
-            print(testcase.details())
+            results.append(testcase.details())
+        
+        return results
 
     def testcases(self):
         """
@@ -364,6 +366,12 @@ class TriageTool:
                     full_path
                 )
 
+
+def save(fname, data):
+    output = open(fname, 'w')
+    obj = {'crashes': tool.run()}
+    output.write(json.dumps(obj))
+    output.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -393,6 +401,12 @@ if __name__ == "__main__":
         default=500000000
     )
     parser.add_argument(
+        '--output',
+        help='file to write the results to',
+        type=str,
+        default='/dev/stdout'
+    )
+    parser.add_argument(
         'testcase_dir',
         help='path to testcases'
     )
@@ -412,4 +426,8 @@ if __name__ == "__main__":
         wait_time=args.wait_time,
         memory=args.memory
     )
-    tool.run()
+
+    result = tool.run()
+
+    save(args.output, result)
+    
