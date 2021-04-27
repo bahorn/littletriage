@@ -39,22 +39,6 @@ class Analyzer:
         """
 
 
-class ExampleAnalyzer(Analyzer):
-    """
-    Essentially just echos out the testcase
-    """
-    def analyze(self, testcase):
-        """
-        Check a testcase
-        """
-        return testcase.details()
-
-    def details(self):
-        return {
-            'name': 'Example Analyzer'
-        }
-
-
 class GDBAnalyzer(Analyzer):
     """
     GDB version of the analyzer.
