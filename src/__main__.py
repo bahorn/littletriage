@@ -66,7 +66,8 @@ class GDBAnalyzer(Analyzer):
                  stdin=False,
                  timeout=30,
                  script_path='/tmp/.script.py',
-                 wait_time=0.5):
+                 wait_time=0.5,
+                 memory=500000000):
         super().__init__()
 
         self.binary = binary
@@ -79,6 +80,7 @@ class GDBAnalyzer(Analyzer):
         # Essentially, how long to wait for GDB to start up and listen
         self.wait_time = wait_time
         self.stdin = stdin
+        self.memory = memory
 
     def analyze(self, testcase):
         """
@@ -142,7 +144,8 @@ class GDBAnalyzer(Analyzer):
 
             registers = {}
             for register in amd64_registers:
-                registers[register] = '0x%016x' % curr_frame.read_register(register)
+                registers[register] = ('0x%016x' % 
+                    curr_frame.read_register(register))
 
             while curr_frame is not None:
                 backtrace.append(
@@ -197,13 +200,23 @@ class GDBAnalyzer(Analyzer):
         # i.e, stdin or as a cli flag
         if self.stdin:
             gdb.execute(
-                'starti {} < {} 2>/dev/null'.format(" ".join(real), path)
+                'starti %s < %s 2>/dev/null' % (" ".join(real), path)
             )
         else:
-            gdb.execute('starti {} 2>/dev/null'.format(" ".join(real)))
+            gdb.execute('starti %s 2>/dev/null' % " ".join(real))
 
         # do stuff like setup memory limits here, before progressing past the
         # entry point.
+        inferior = gdb.selected_inferior()
+        # hack to limit the memory of a child process.
+        # requires modern linux, greater than 2.6.36.
+        prlimit = \
+            '!prlimit --pid %i --core=unlimited --as=%i' % \
+                (inferior.pid, self.memory)
+        print(prlimit)
+        gdb.execute(prlimit)
+
+        # and now start
         gdb.execute('c')
 
         # now we wait til an error occurs.
@@ -312,7 +325,7 @@ class TriageTool:
     all_analyzers = {}
 
     def __init__(self, testcase_path, binary, binargs, stdin=False, timeout=30,
-                 wait_time=0.5):
+                 wait_time=0.5, memory=5000000000):
         self.testcase_path = testcase_path
         self.testcases()
 
@@ -320,7 +333,7 @@ class TriageTool:
         example = ExampleAnalyzer()
         meta = MetaAnalyzer()
         gdb = GDBAnalyzer(binary, binargs, stdin=stdin, timeout=timeout,
-                          wait_time=wait_time)
+                          wait_time=wait_time, memory=memory)
         self.all_analyzers = {
             'example': example,
             'meta': meta,
@@ -374,6 +387,12 @@ if __name__ == "__main__":
         default=0.5
     )
     parser.add_argument(
+        '--memory',
+        help='memory limit for the child process (bytes)',
+        type=int,
+        default=500000000
+    )
+    parser.add_argument(
         'testcase_dir',
         help='path to testcases'
     )
@@ -390,7 +409,7 @@ if __name__ == "__main__":
         binargs=args.binary[1:],
         stdin=args.stdin,
         timeout=args.timeout,
-        wait_time=args.wait_time
-
+        wait_time=args.wait_time,
+        memory=args.memory
     )
     tool.run()

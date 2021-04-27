@@ -1,6 +1,7 @@
 __pycache__
 packed.py
 
-tests/recusion
+tests/recursion
 tests/normal
 tests/ro_mem
+tests/large_alloc

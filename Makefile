@@ -1,39 +1,47 @@
 
 # builds the packed script
-packed.py:
+packed.py: ./src/__main__.py
 	python3 pack.py > packed.py
 
 
+
 # test binaries
-./tests/recursion:
-	gcc -o ./tests/recursion ./tests/recursion.c
+./tests/recursion: ./tests/recursion.c
+	gcc -O0 -o ./tests/recursion ./tests/recursion.c
 
-./tests/ro_mem:
-	gcc -o ./tests/ro_mem ./tests/ro_mem.c
+./tests/ro_mem: ./tests/ro_mem.c
+	gcc -O0 -o ./tests/ro_mem ./tests/ro_mem.c
 
-./tests/normal:
-	gcc -o ./tests/normal ./tests/normal.c
+./tests/normal: ./tests/normal.c
+	gcc -O0 -o ./tests/normal ./tests/normal.c
+
+./tests/large_alloc: ./tests/large_alloc.c
+	gcc -O0 -o ./tests/large_alloc ./tests/large_alloc.c
 
 
-build: ./tests/normal ./tests/recusion ./tests/ro_mem
+build: ./tests/normal ./tests/recursion ./tests/ro_mem ./tests/large_alloc
 
 # all the test instances
 test_normal: packed.py build
-	python3 packed.py ./tests/normal ./tests/testcases
+	python3 packed.py ./tests/testcases ./tests/normal
 
-test_recusion: packed.py build
-	python3 packed.py ./tests/recusion ./tests/testcases
+test_recursion: packed.py build
+	python3 packed.py ./tests/testcases ./tests/recursion
 
 test_romem: packed.py build
-	python3 packed.py ./tests/ro_mem ./tests/testcases/
+	python3 packed.py ./tests/testcases ./tests/ro_mem
 
+test_large_alloc: packed.py build
+	python3 packed.py ./tests/testcases ./tests/large_alloc
 
 # invokes all the tests
-test: test_romem test_recusion test_normal
+test: test_romem test_recursion test_normal test_large_alloc
 
 # clean it up
 clean:
 	-rm ./tests/recusion
 	-rm ./tests/ro_mem
-	-rm ./tests/recusion
+	-rm ./tests/recursion
+	-rm ./tests/normal
+	-rm ./tests/large_alloc
 	-rm ./packed.py
